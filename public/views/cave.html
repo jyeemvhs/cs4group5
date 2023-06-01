@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang='en'>
+
+<head>
+  <meta charset='utf-8' />
+  <title>MS Survival Simulator</title>
+  <style>
+    html,
+    body {
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden;
+    }
+
+    canvas {
+      position: relative;
+    }
+
+    #maincanvas {
+      top: 20px;
+      left: 20px;
+      position: absolute;
+    }
+  </style>
+  <script src='https://cdn.socket.io/4.5.4/socket.io.min.js'></script>
+  <script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.4/jquery.min.js'></script>
+  <script src='//cdn.jsdelivr.net/npm/alertifyjs@1.13.1/build/alertify.min.js'></script>
+  <script src='https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js'
+    integrity='sha512-6+YN/9o9BWrk6wSfGxQGpt3EUK6XeHi6yeHV+TYD2GR0Sj/cggRpXr1BrAQf0as6XslxomMUxXp2vIl+fv0QRA=='
+    crossorigin='anonymous' referrerpolicy='no-referrer'></script>
+  <link rel='stylesheet' href='//cdn.jsdelivr.net/npm/alertifyjs@1.13.1/build/css/alertify.min.css' />
+</head>
+
+<body id='home'>
+  <canvas id='maincanvas' width='3000' height='1500'></canvas>
+  <script>
+    let canvas;
+    let music = true
+    let map = true
+    let mainCanvas = document.getElementById('maincanvas');
+    let ctx2 = mainCanvas.getContext('2d');
+    const rconst = 6
+    const audio = {
+      Map: new Howl({
+        src: '/music/map.wav',
+        html5: true,
+        volume: 1,
+      }),
+      Battle: new Howl({
+        src: '/music/battle.mp3',
+        html5: true,
+        volume: 1,
+      }),
+    };
+    var sock = io();
+    function render() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      canvasW = canvas.width;
+      canvasH = canvas.height;
+    }
+    var Cave = new Image();
+    var IMGMAP = new Map()
+    for(let i = 0; i != 6; ++i) {
+      let x = new Image()
+      x.src = '/imgs/items/tree'+i+'.png'
+      IMGMAP.set(i, x)
+    }
+    for(let i = 0; i != 6; ++i) {
+      let x = new Image()
+      x.src = '/imgs/items/rock'+i+'.png'
+      IMGMAP.set(i+rconst, x)
+    }
+    $(document).ready(() => {
+      Cave.src = '/imgs/Cave.png';
+      $.get('/getName', function (data) {
+        let name = data.name
+        $.ajax({
+          url: '/read',
+          type: 'GET',
+          data: { username: name },
+          success: function (data) {
+            if (data.error) {
+              sock.emit('badGet')
+              sock.emit('update')
+            } else {
+              sock.emit('goodGet', data)
+              sock.emit('setName', name)
+              sock.emit('update')
+            }
+          },
+          dataType: 'json',
+        })
+      })
+      sock.emit('TTTT')
+      let clicked = false;
+      addEventListener('click', () => {
+        if (!clicked) {
+          audio.Map.play();
+          clicked = true;
+          sock.emit('TTTT')
+        }
+      });
+      setInterval(function () {
+        clicked = false;
+      }, 100000);
+      setInterval(function () {
+        sock.emit('getPlayerData')
+      }, 10000)
+      setInterval(function () {
+        sock.emit('update')
+      }, 2000)
+      sock.emit('update')
+    });
+    function setCanvas() {
+      canvas = document.getElementById('Canvas' + sock.id);
+      ctx = canvas.getContext('2d');
+      ctx.font = '18px serif';
+      window.addEventListener('resize ', render, false);
+      render();
+    }
+    document.onkeydown = function (event) {
+      let keyPresses = []
+      if (event.which == 68 || event.which == 39)
+        keyPresses.push('right')
+      else if (event.which == 83 || event.which == 40)
+        keyPresses.push('down')
+      else if (event.which == 65 || event.which == 37)
+        keyPresses.push('left')
+      else if (event.which == 87 || event.which == 38)
+        keyPresses.push('up')
+      else if (event.which == 32)
+        keyPresses.push('space')
+      else if (event.which == 73) keyPresses.push('i')
+      else if (event.which == 84) {
+        if (music) {
+          Howler.volume(0)
+          music = false
+        } else {
+          Howler.volume(1);
+          music = true
+        }
+      } else if (event.which == 77) {
+        if (map) map = false
+        else map = true
+        keyPresses.push('m')
+      }
+      sock.emit('keyPressCave', keyPresses);
+    }
+    sock.on('newPlayer', () => {
+      let Newcanvas = document.createElement('canvas');
+      Newcanvas.id = 'Canvas' + sock.id;
+      $('#home').append(Newcanvas);
+      setCanvas();
+    });
+    sock.on('swingTool', (Data) => {
+      let user = Data.currentUser
+      let TreeList = Data.TreeList
+      let RockList = Data.RockList
+      let Axdmg = 0
+      let Pkdmg = 0
+      let Axecrit = Math.floor(Math.random() * 10) + Number(user.upgrades[4]);
+      (Axecrit >= 10) ? (Axdmg += Number(user.upgrades[5]*3)) : Axdmg = 0;
+      let Piccrit = Math.floor(Math.random() * 10) + Number(user.upgrades[8]);
+      (Piccrit >= 10) ? (Pkdmg += Number(user.upgrades[7]*3)) : Axdmg = 0;
+
+      switch (user.holding) {
+        case 'Axe':
+          {
+            Axdmg += Number(user.upgrades[3]);
+            Pkdmg = 0
+          }
+          break
+        case 'Pickaxe':
+          {
+            Axdmg = 0
+            Pkdmg += Number(user.upgrades[6]);
+          }
+          break
+        case 'Rod':
+          {
+            Axdmg = 0
+            Pkdmg = 0
+          }
+          break
+      }
+      if (user != undefined) {
+        RockList.forEach((rock) => {
+          if (
+            (user.facing =
+              'left' &&
+              user.cx > rock.cx &&
+              user.cx < rock.cx + 130 &&
+              user.cy > rock.cy - 20 &&
+              user.cy < rock.cy + rock.height)
+          ) {
+            sock.emit('hitARock', { rock, dmg: Pkdmg, toolcolor: color })
+          }
+          if (
+            (user.facing =
+              'right' &&
+              user.cx < rock.cx &&
+              user.cx > rock.cx - 130 &&
+              user.cy > rock.cy - 20 &&
+              user.cy < rock.cy + rock.height)
+          ) {
+            sock.emit('hitARock', { rock, dmg: Pkdmg, toolcolor: color })
+          }
+        })
+      }
+    })
+    sock.on('notcloseenoughtowatertofish', () => {
+      alertify.error('not close enough to water to fish')
+    })
+    sock.on('Iwanttogohomedad', (data) => {
+      sock.emit('lock')
+      alertify.confirm(
+        'Leave The Cave?',
+        () => {
+          sock.emit('unlock')
+          alertify.success('Leaving The Cave')
+          $.ajax({
+            url: '/savePlayer',
+            type: 'PUT',
+            data: {
+              x: data.x,
+              y: data.y,
+              cx: data.cx,
+              cy: data.cy,
+              speed: data.speed,
+              coins: data.coins,
+              inventory: data.inventory,
+              holding: data.holding,
+              facing: data.facing,
+              face: data.face,
+              color: data.color,
+              upgrades: data.upgrades,
+            },
+            success: function (data) {
+              window.location.replace('/game')
+            },
+            dataType: 'json',
+          })
+        },
+        () => {
+          sock.emit('unlock')
+          sock.emit('changeCX', 1200)
+          alertify.error('Staying')
+        }
+      )
+    })
+    sock.on('data', (data) => {
+
+      $.ajax({
+        url: '/savePlayer',
+        type: 'PUT',
+        data: {
+          x: 200,
+          y: 50,
+          cx: data.cx,
+          cy: data.cy,
+          speed: data.speed,
+          coins: data.coins,
+          inventory: data.inventory,
+          holding: data.holding,
+          facing: data.facing,
+          face: data.face,
+          color: data.color,
+        },
+        success: function (data) {
+        },
+        dataType: 'json',
+      })
+    })
+
+    sock.on('inv', (inv) => {
+      alertify.alert('Inventory', inv);
+    });
+
+    sock.on('update-players', (Data) => {
+      let UsersList = Data.UserList
+      let RockList = Data.RockList
+      let user
+      render();
+      UsersList.forEach(userx => {
+        if (userx.id == sock.id) {
+          user = userx
+        }
+      })
+      if (user != undefined) {
+        ctx2.clearRect(0, 0, 10000000000000000, 100000000000000000);
+        ctx2.drawImage(Cave, 0, 0, 3000, 1500);
+        sock.emit('spawnOdds');
+
+        UsersList.forEach((user) => {
+          {
+            let faceIMG = new Image();
+            switch (user.face) {
+              case 1: faceIMG.src = './imgs/faces/Face1.png'; break
+              case 2: faceIMG.src = './imgs/faces/Face2.png'; break
+              case 3: faceIMG.src = './imgs/faces/Face3.png'; break
+              case 4: faceIMG.src = './imgs/faces/Face4.png'; break
+              case 5: faceIMG.src = './imgs/faces/Face5.png'; break
+              default: faceIMG.src = './imgs/faces/Face3.png'; break
+            }
+
+            ctx2.beginPath();
+            ctx2.lineWidth = '10';
+            ctx2.strokeStyle = user.color;
+            ctx2.rect(user.cx, user.cy, 50, 50);
+            ctx2.stroke();
+            ctx2.drawImage(faceIMG, user.cx, user.cy, 50, 50);
+            ctx2.fillText(user.PlayerName, user.cx, user.cy - 10);
+          }
+          if (user.isSwinging == true) {
+            let image = new Image();
+            (user.facing == 'left') ? image.src = '/imgs/tools/' + user.holding + '2.png' : image.src = '/imgs/tools/' + user.holding + '.png';
+            (user.facing == 'left') ? ctx2.drawImage(image, user.cx - 100, user.cy, 120, 40) : ctx2.drawImage(image, user.cx + 30, user.cy, 120, 40);
+            sock.emit('noLongerSwinging', user)
+          }
+        });
+        RockList.forEach((rock) => {
+          if (rock.type == 'cave') {
+            {
+              ctx2.drawImage(IMGMAP.get(rock.img + rconst), rock.cx - IMGMAP.get(rock.img + rconst).width / 5, rock.cy - IMGMAP.get(rock.img + rconst).height / 3, rock.width * 16, rock.height * 2)
+            }
+
+            if (rock.isDamaged == true) {
+              ctx2.beginPath()
+              ctx2.lineWidth = 15
+              ctx2.strokeStyle = 'red'
+              ctx2.rect(
+                rock.cx + rock.width / 2,
+                rock.cy - rock.height,
+                rock.hp / rock.stoneValue + rock.width / 2,
+                5
+              )
+              ctx2.stroke()
+
+              ctx2.beginPath()
+              ctx2.lineWidth = 15
+              ctx2.strokeStyle = 'red'
+              ctx2.rect(
+                rock.cx + rock.width / 2,
+                rock.cy - rock.height,
+                -rock.hp / rock.stoneValue - rock.width / 2,
+                5
+              )
+              ctx2.stroke()
+            }
+          }
+        })
+
+
+      }
+      if (user != undefined) {
+        if (user.cx >= window.innerWidth / 2 && user.cx <= window.innerWidth && user.cy >= window.innerHeight / 2 && user.cy <= window.innerHeight) {
+          //regular
+          ctx.drawImage(
+            mainCanvas,
+            user.cx - window.innerWidth / 2,
+            user.cy - window.innerHeight / 2,
+            2000,
+            1000,
+            0,
+            0,
+            window.innerWidth,
+            window.innerHeight
+          );
+        }
+        else if (user.cx >= window.innerWidth / 2 && user.cx <= window.innerWidth && user.cy >= window.innerHeight / 2) {
+          //locks top camera
+          ctx.drawImage(
+            mainCanvas,
+            user.cx - window.innerWidth / 2,
+            window.innerHeight - window.innerHeight / 2,
+            2000,
+            1000,
+            0,
+            0,
+            window.innerWidth,
+            window.innerHeight
+          );
+        } else if (user.cx >= window.innerWidth / 2 && user.cx <= window.innerWidth && user.cy <= window.innerHeight) {
+          //locks bottom camera
+          ctx.drawImage(
+            mainCanvas,
+            user.cx - window.innerWidth / 2,
+            window.innerHeight / 2 - window.innerHeight / 2,
+            2000,
+            1000,
+            0,
+            0,
+            window.innerWidth,
+            window.innerHeight
+          );
+        }
+        else if (user.cx >= window.innerWidth / 2 && user.cy <= window.innerHeight && user.cy >= window.innerHeight / 2) {
+          //locks right camera
+          ctx.drawImage(
+            mainCanvas,
+            (window.innerWidth) - window.innerWidth / 2,
+            user.cy - window.innerHeight / 2,
+            2000,
+            1000,
+            0,
+            0,
+            window.innerWidth,
+            window.innerHeight
+          );
+        }
+        else if (user.cx <= window.innerWidth && user.cy <= window.innerHeight && user.cy >= window.innerHeight / 2) {
+          //locks left camera
+          ctx.drawImage(
+            mainCanvas,
+            window.innerWidth / 2 - window.innerWidth / 2,
+            user.cy - window.innerHeight / 2,
+            2000,
+            1000,
+            0,
+            0,
+            window.innerWidth,
+            window.innerHeight
+          );
+        } else if (user.cx <= window.innerWidth && user.cy <= window.innerHeight) {
+          //locks left top camera
+          ctx.drawImage(
+            mainCanvas,
+            window.innerWidth / 2 - window.innerWidth / 2,
+            window.innerHeight / 2 - window.innerHeight / 2,
+            2000,
+            1000,
+            0,
+            0,
+            window.innerWidth,
+            window.innerHeight
+          );
+        }
+        else if (user.cx <= window.innerWidth && user.cy >= window.innerHeight / 2) {
+          //locks left bottom camera
+          ctx.drawImage(
+            mainCanvas,
+            window.innerWidth / 2 - window.innerWidth / 2,
+            window.innerHeight - window.innerHeight / 2,
+            2000,
+            1000,
+            0,
+            0,
+            window.innerWidth,
+            window.innerHeight
+          );
+        }
+        else if (user.cx >= window.innerWidth / 2 && user.cy >= window.innerHeight / 2) {
+          //locks right bottom camera
+          ctx.drawImage(
+            mainCanvas,
+            (window.innerWidth) - window.innerWidth / 2,
+            window.innerHeight - window.innerHeight / 2,
+            2000,
+            1000,
+            0,
+            0,
+            window.innerWidth,
+            window.innerHeight
+          );
+        }
+        else if (user.cx >= window.innerWidth / 2 && user.cy <= window.innerHeight) {
+          //locks right top camera
+          ctx.drawImage(
+            mainCanvas,
+            (window.innerWidth) - window.innerWidth / 2,
+            window.innerHeight / 2 - window.innerHeight / 2,
+            2000,
+            1000,
+            0,
+            0,
+            window.innerWidth,
+            window.innerHeight
+          );
+        }
+        if (map) {
+          ctx.drawImage(
+            mainCanvas,
+            0,
+            0,
+            3000,
+            1500,
+            window.innerWidth / 1.15,
+            window.innerHeight / 1.15,
+            window.innerWidth / 8,
+            window.innerHeight / 8
+          );
+        }
+        let tool = new Image()
+        tool.src = '/imgs/tools/Axe.png'
+        ctx.drawImage(
+          tool,
+          window.innerWidth / 2.4,
+          window.innerHeight / 1.2
+        )
+        let tool2 = new Image()
+        tool2.src = '/imgs/tools/Pickaxe.png'
+        ctx.drawImage(
+          tool2,
+          window.innerWidth / 2.2,
+          window.innerHeight / 1.2
+        )
+        let tool3 = new Image()
+        tool3.src = '/imgs/tools/Rod.png'
+        ctx.drawImage(
+          tool3,
+          window.innerWidth / 2.05,
+          window.innerHeight / 1.21
+        )
+      }
+    });
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <meta charset="utf-8" />
+  <title>MS Paint Fishing Simulator Shop</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <style>
+    html,
+    body {
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden;
+      background-image: url(./imgs/shop/NewShop.png);
+      background-repeat: "no-repeat";
+      background-size: 2000px 1000px;
+    }
+
+    .button {
+      background-color: #4CAF50;
+      /* Green */
+      border: none;
+      color: white;
+      padding: 15px 32px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 5px 40px;
+      cursor: pointer;
+    }
+
+    .button1 {
+      width: 550px;
+      height: 170px;
+      opacity: 0;
+    }
+
+    .button2 {
+      width: 50%;
+    }
+
+    .button3 {
+      width: 100%;
+    }
+  </style>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/alertifyjs@1.13.1/build/alertify.min.js"></script>
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/alertifyjs@1.13.1/build/css/alertify.min.css" />
+</head>
+
+<body id="home">
+  <canvas id="TheCanvas"></canvas>
+  <div id="container" style="position:absolute;left: 950px;top:25px;display: flexbox;">
+    <form id="nameform">
+      <input id='sell' type="button" class="button button1">
+      <br>
+      <input id='rod' type="button" class="button button1">
+      <br>
+      <input id='line' type="button" class="button button1">
+      <br>
+      <input id='bait' type="button" class="button button1">
+      <br>
+      <input id='exit' type="button" class="button button1">
+    </form>
+  </div>
+  <script>
+    var sock = io()
+    let canvas = document.getElementById("TheCanvas");
+    ctx = canvas.getContext("2d");
+    window.addEventListener('resize ', render, false);
+    render()
+    function render() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      canvasW = canvas.width;
+      canvasH = canvas.height;
+    }
+    var Mapimg = new Image();
+    $(document).ready(() => {
+      $.get('/getName', function (data) {
+        let name = data.name
+        $.ajax({
+          url: '/read',
+          type: 'GET',
+          data: { username: name },
+          success: function (data) {
+            if (data.error) {
+              sock.emit('badGet')
+            } else {
+              sock.emit('goodGet', data)
+            }
+          },
+          dataType: 'json',
+        })
+      })
+      Mapimg.src = '/imgs/shop/NewShop.png'
+      $("#container").css("left", canvasW / 2)
+      $("#sell").click(() => {
+        sock.emit('sell')
+      })
+      $("#rod").click(() => {
+        sock.emit('rod')
+      })
+      $("#line").click(() => {
+        sock.emit('line')
+      })
+      $("#bait").click(() => {
+        sock.emit('bait')
+      })
+      $("#exit").click(() => {
+        sock.emit('savePlayer')
+        sock.emit('isNotShopping')
+      })
+    })
+    window.onresize = function () {
+      Mapimg.src = '/imgs/shop/NewShop.png'
+    }
+    sock.on('GotMilk', (id) => {
+      window.location.replace("/game")
+    });
+    sock.on('update-players', (Users) => {
+      render()
+      ctx.clearRect(0, 0, 10000, 10000);
+      $("#container").css("left", canvasW / 2 - 100)
+      ctx.drawImage(Mapimg, 0, 0, 2000, 1000);
+    });
+    sock.on('baiting', (Player) => {
+      if (Player.bait >= 3) {
+        alertify.alert("Bait Is At Max Level")
+      }
+      else {
+        let cost = Player.bait * 10 + 10
+        alertify.confirm("Upgrade Bait To Level " + (Player.bait + 1) + " For " + cost + " Coins?",
+          "Upgrading your bait unlocks higher rarity fish",
+          function () {
+            if (Player.coins >= cost) {
+              sock.emit('upgradeBait', cost)
+              alertify.success('Upgraded Bait');
+            } else {
+              alertify.error('Not Enough Coins');
+            }
+          },
+          function () {
+            alertify.error('Did Not Upgrade Bait');
+          })
+      }
+    })
+    sock.on('lineing', (Player) => {
+      if (Player.line >= 15) {
+        alertify.alert("Line Is At Max Level")
+      }
+      else {
+        let cost = Player.line * 10 + 10
+        alertify.confirm("Upgrade Line To Level " + (Player.line + 1) + " For " + cost + " Coins?",
+          "Upgrading your line increases your chances of catching rarer fish if bait is high enough level",
+          function () {
+            if (Player.coins >= cost) {
+              sock.emit('upgradeLine', cost)
+              alertify.success('Upgraded Line');
+            } else {
+              alertify.error('Not Enough Coins');
+            }
+          },
+          function () {
+            alertify.error('Did Not Upgrade Line');
+          })
+      }
+    })
+    sock.on('roding', (Player) => {
+      if (Player.rod >= 15) {
+        alertify.alert("Rod Is At Max Level")
+      }
+      else {
+        let cost = Player.rod * 10 + 10
+        alertify.confirm("Upgrade Rod To Level " + (Player.rod + 1) + " For " + cost + " Coins?",
+          "Upgrading your rod decreases the amount of time it takes to catch fish",
+          function () {
+            if (Player.coins >= cost) {
+              sock.emit('upgradeRod', cost)
+              alertify.success('Upgraded Rod');
+            } else {
+              alertify.error('Not Enough Coins');
+            }
+          },
+          function () {
+            alertify.error('Did Not Upgrade Rod');
+          })
+      }
+    })
+    sock.on('selling', (sold) => {
+      if (sold == 1)
+        alertify.alert("Sold", "Sold all fish for " + sold + " coin");
+      else
+        alertify.alert("Sold", "Sold all fish for " + sold + " coins");
+    });
+  </script>
+
+</html>

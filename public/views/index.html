@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang='en'>
+
+<head>
+  <meta charset='utf-8' />
+  <title>MS Survival Simulator</title>
+  <style>
+    html,
+    body {
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden
+    }
+
+    canvas {
+      position: relative
+    }
+
+    #maincanvas {
+      top: 20px;
+      left: 20px;
+      position: absolute
+    }
+  </style>
+  <script src='https://cdn.socket.io/4.5.4/socket.io.min.js'></script>
+  <script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.4/jquery.min.js'></script>
+  <script src='//cdn.jsdelivr.net/npm/alertifyjs@1.13.1/build/alertify.min.js'></script>
+  <script src='https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js'
+    integrity='sha512-6+YN/9o9BWrk6wSfGxQGpt3EUK6XeHi6yeHV+TYD2GR0Sj/cggRpXr1BrAQf0as6XslxomMUxXp2vIl+fv0QRA=='
+    crossorigin='anonymous' referrerpolicy='no-referrer'></script>
+  <link rel='stylesheet' href='//cdn.jsdelivr.net/npm/alertifyjs@1.13.1/build/css/alertify.min.css' />
+</head>
+
+<body id='home'>
+  <canvas id='maincanvas' width='3000' height='1500'></canvas>
+  <script>
+    let canvas
+    let music = true
+    let map = true
+    let mainCanvas = document.getElementById('maincanvas')
+    let ctx2 = mainCanvas.getContext('2d')
+    const rconst = 6
+    const audio = {
+      Map: new Howl({
+        src: '/music/map.wav',
+        html5: true,
+        volume: 1,
+      }),
+      Battle: new Howl({
+        src: '/music/battle.mp3',
+        html5: true,
+        volume: 1,
+      }),
+    }
+    var sock = io()
+    function render() {
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+      canvasW = canvas.width
+      canvasH = canvas.height
+    }
+    var Mapimg = new Image()
+    var IMGMAP = new Map()
+    for(let i = 0; i != 6; ++i) {
+      let x = new Image()
+      x.src = '/imgs/items/tree'+i+'.png'
+      IMGMAP.set(i, x)
+    }
+    for(let i = 0; i != 6; ++i) {
+      let x = new Image()
+      x.src = '/imgs/items/rock'+i+'.png'
+      IMGMAP.set(i+rconst, x)
+    }
+
+    let player = null
+
+    $(document).ready(() => {
+      $.get('/getName', function (data) {
+        let name = data.name
+        $.ajax({
+          url: '/read',
+          type: 'GET',
+          data: { username: name },
+          success: function (data) {
+            if (data.error) {
+              sock.emit('badGet')
+              sock.emit('update')
+            } else {
+              sock.emit('goodGet', data)
+              sock.emit('setName', name)
+              sock.emit('update')
+            }
+          },
+          dataType: 'json',
+        })
+      })
+
+      Mapimg.src = '/imgs/EvenBetterMap.png'
+
+      let clicked = false
+      addEventListener('click', () => {
+        if (!clicked) {
+          audio.Map.play()
+          clicked = true
+          sock.emit('TTTT')
+        }
+      })
+
+      setInterval(function () {
+        clicked = false
+      }, 100000)
+      setInterval(function () {
+        sock.emit('getPlayerData')
+      }, 10000)
+      setInterval(function () {
+        sock.emit('update')
+      }, 2000)
+      sock.emit('update')
+    })
+    function setCanvas() {
+      canvas = document.getElementById('Canvas' + sock.id)
+      ctx = canvas.getContext('2d')
+      ctx.font = '18px serif'
+      window.addEventListener('resize ', () => {
+        sock.emit('update')
+      }, false)
+      render()
+    }
+    document.onkeydown = function (event) {
+      let keyPresses = []
+      if (event.which == 68 || event.which == 39) keyPresses.push('right')
+      else if (event.which == 83 || event.which == 40)
+        keyPresses.push('down')
+      else if (event.which == 65 || event.which == 37)
+        keyPresses.push('left')
+      else if (event.which == 87 || event.which == 38) keyPresses.push('up')
+      else if (event.which == 32) keyPresses.push('space')
+      else if (event.which == 73) keyPresses.push('i')
+      else if (event.which == 84) {
+        if (music) {
+          Howler.volume(0)
+          music = false
+        } else {
+          Howler.volume(1)
+          music = true
+        }
+      } else if (event.which == 77) {
+        if (map) map = false
+        else map = true
+        keyPresses.push('m')
+      }
+      else if (event.which == 49) {
+        keyPresses.push('1')
+      }
+      else if (event.which == 50) {
+        keyPresses.push('2')
+      }
+      else if (event.which == 51) {
+        keyPresses.push('3')
+      }
+      sock.emit('keyPress', keyPresses)
+    }
+    sock.on('caughtfish', fish => {
+      alertify.alert("You caught a fish!", "You caught a "+ fish.name + " Fish! <br> Value: " + fish.value + "<img style='width:100%;' src='" + fish.image + ".png'/>")
+    })
+    sock.on('promptingShop', () => {
+        sock.emit('getPlayerData')
+        sock.emit('lock')
+        alertify.confirm(
+          'Go to Shop?',
+          () => {
+            sock.emit('unlock')
+            alertify.success('Going To Shop')
+            sock.emit('isShopping', sock.id)
+          },
+          () => {
+            sock.emit('unlock')
+            alertify.error('Staying')
+            sock.emit('changeY', 1200)
+          }
+        )
+      })
+      sock.on('promptingCustom', () => {
+        sock.emit('getPlayerData')
+        sock.emit('lock')
+        alertify.confirm(
+          'Go to Customize?',
+          () => {
+            sock.emit('unlock')
+            alertify.success('Going To Customiz')
+            sock.emit('isCustomizing', sock.id)
+          },
+          () => {
+            sock.emit('unlock')
+            alertify.error('Staying')
+            sock.emit('changeY', 1200)
+          }
+        )
+      })
+    sock.on('promptingCave', () => {
+      sock.emit('getPlayerData')
+      sock.emit('lock')
+      alertify.confirm(
+        'Enter The Cave?',
+        () => {
+          sock.emit('unlock')
+          alertify.success('Entering The Cave')
+          sock.emit('isCaveing', sock.id)
+        },
+        () => {
+          sock.emit('unlock')
+          alertify.error('Staying')
+          sock.emit('changeY', 200)
+          sock.emit('changeX', 200)
+        }
+      )
+    })
+    sock.on('newPlayer', () => {
+      let Newcanvas = document.createElement('canvas')
+      Newcanvas.id = 'Canvas' + sock.id
+      $('#home').append(Newcanvas)
+      setCanvas()
+    })
+    sock.on('swingTool', (Data) => {
+      let user = Data.currentUser
+      let TreeList = Data.TreeList
+      let RockList = Data.RockList
+      let Axdmg = 0
+      let Pkdmg = 0
+      if(user != null && user != undefined) {
+        let Axecrit = Math.floor(Math.random() * 10) + Number(user.upgrades[4]);
+      (Axecrit >= 10) ? (Axdmg += Number(user.upgrades[5]*3)) : Axdmg = 0;
+      let Piccrit = Math.floor(Math.random() * 10) + Number(user.upgrades[8]);
+      (Piccrit >= 10) ? (Pkdmg += Number(user.upgrades[7]*3)) : Axdmg = 0;
+
+      switch (user.holding) {
+        case 'Axe':
+          {
+            Axdmg += Number(user.upgrades[3]);
+            Pkdmg = 0
+          }
+          break
+        case 'Pickaxe':
+          {
+            Axdmg = 0
+            Pkdmg += Number(user.upgrades[6]);
+          }
+          break
+        case 'Rod':
+          {
+            Axdmg = 0
+            Pkdmg = 0
+          }
+          break
+      }
+      if (user != undefined) {
+        TreeList.forEach((tree) => {
+          if (
+            (user.facing =
+              'left' &&
+              user.x > tree.x &&
+              user.x < tree.x + 130 &&
+              user.y > tree.y &&
+              user.y < tree.y + tree.height)
+          ) {
+            sock.emit('hitATree', { tree, dmg: Axdmg })
+          }
+          if (
+            (user.facing =
+              'right' &&
+              user.x < tree.x &&
+              user.x > tree.x - 130 &&
+              user.y > tree.y &&
+              user.y < tree.y + tree.height)
+          ) {
+            sock.emit('hitATree', { tree, dmg: Axdmg })
+          }
+        })
+        RockList.forEach((rock) => {
+          if (
+            (user.facing =
+              'left' &&
+              user.x > rock.x &&
+              user.x < rock.x + 130 &&
+              user.y > rock.y - 20 &&
+              user.y < rock.y + rock.height)
+          ) {
+            sock.emit('hitARock', { rock, dmg: Pkdmg })
+          }
+          if (
+            (user.facing =
+              'right' &&
+              user.x < rock.x &&
+              user.x > rock.x - 130 &&
+              user.y > rock.y - 20 &&
+              user.y < rock.y + rock.height)
+          ) {
+            sock.emit('hitARock', { rock, dmg: Pkdmg })
+          }
+        })
+      }
+      }
+    })
+    sock.on('inv', (inv) => {
+      alertify.alert('Inventory', inv)
+    })
+
+    sock.on('wentShopping', () => {
+      window.location.replace('/mainShop')
+      sock.emit('update')
+    })
+    sock.on('wentCaveing', () => {
+      window.location.replace('/Cave')
+      sock.emit('update')
+    })
+    sock.on('wentCustomizing', () => {
+      window.location.replace('/custom')
+      sock.emit('update')
+    })
+    sock.on('upgraderod', (lvl) => {
+      alertify.error('Rod is too low level requires level 3. Current level is ' + lvl)
+    })
+    sock.on('notcloseenoughtowatertofish', () => {
+      alertify.error('not close enough to water to fish')
+    })
+    sock.on('startedFishing', () => {  alertify.success('Fishing')})
+    sock.on('update-players', (Data) => {
+      render()
+      let user
+      let UsersList = Data.UserList
+      let TreeList = Data.TreeList
+      let RockList = Data.RockList
+      UsersList.forEach((userx) => {
+        if (userx.id == sock.id) {
+          user = userx
+        }
+      })
+      {
+        ctx2.clearRect(0, 0, 10000000000000000, 100000000000000000)
+        ctx2.drawImage(Mapimg, 0, 0, 3000, 1500)
+        sock.emit('spawnOdds')
+        RockList.forEach((rock) => {
+          {
+            ctx2.drawImage(IMGMAP.get(rock.img + rconst), rock.x - IMGMAP.get(rock.img + rconst).width / 5, rock.y - IMGMAP.get(rock.img + rconst).height / 3, rock.width * 16, rock.height * 2)
+          }
+
+          if (rock.isDamaged == true) {
+            ctx2.beginPath()
+            ctx2.lineWidth = 15
+            ctx2.strokeStyle = 'red'
+            ctx2.rect(
+              rock.x + rock.width / 2,
+              rock.y - rock.height,
+              rock.hp / rock.stoneValue + rock.width / 2,
+              5
+            )
+            ctx2.stroke()
+
+            ctx2.beginPath()
+            ctx2.lineWidth = 15
+            ctx2.strokeStyle = 'red'
+            ctx2.rect(
+              rock.x + rock.width / 2,
+              rock.y - rock.height,
+              -rock.hp / rock.stoneValue - rock.width / 2,
+              5
+            )
+            ctx2.stroke()
+          }
+        })
+        TreeList.forEach((tree) => {
+          {
+            ctx2.drawImage(IMGMAP.get(tree.img), tree.x - IMGMAP.get(tree.img).width / 2.25, tree.y - IMGMAP.get(tree.img).height / 2, tree.width * 160, tree.height * 2)
+          }
+
+          if (tree.isDamaged == true) {
+            ctx2.beginPath()
+            ctx2.lineWidth = 15
+            ctx2.strokeStyle = 'red'
+            ctx2.rect(
+              tree.x + tree.width * 4,
+              tree.y - tree.height,
+              tree.hp / tree.woodValue,
+              5
+            )
+            ctx2.stroke()
+
+            ctx2.beginPath()
+            ctx2.lineWidth = 15
+            ctx2.strokeStyle = 'red'
+            ctx2.rect(
+              tree.x,
+              tree.y - tree.height,
+              -tree.hp / tree.woodValue,
+              5
+            )
+            ctx2.stroke()
+          }
+        })
+
+        UsersList.forEach((user) => {
+          {
+            let faceIMG = new Image()
+            switch (user.face) {
+              case 1:
+                faceIMG.src = './imgs/faces/Face1.png'
+                break
+              case 2:
+                faceIMG.src = './imgs/faces/Face2.png'
+                break
+              case 3:
+                faceIMG.src = './imgs/faces/Face3.png'
+                break
+              case 4:
+                faceIMG.src = './imgs/faces/Face4.png'
+                break
+              case 5:
+                faceIMG.src = './imgs/faces/Face5.png'
+                break
+              default:
+                faceIMG.src = './imgs/faces/Face3.png'
+                break
+            }
+
+            ctx2.beginPath()
+            ctx2.lineWidth = '10'
+            ctx2.strokeStyle = user.color
+            ctx2.rect(user.x, user.y, 50, 50)
+            ctx2.stroke()
+            ctx2.drawImage(faceIMG, user.x, user.y, 50, 50)
+            ctx2.fillText(user.PlayerName, user.x, user.y - 10)
+          }
+          if (user.isSwinging == true) {
+            let image = new Image();
+            (user.facing == 'left') ? image.src = '/imgs/tools/' + user.holding + '2.png' : image.src = '/imgs/tools/' + user.holding + '.png';
+            (user.facing == 'left') ? ctx2.drawImage(image, user.x - 100, user.y, 120, 40) : ctx2.drawImage(image, user.x + 30, user.y, 120, 40);
+            sock.emit('noLongerSwinging', user)
+          }
+        })
+      }
+      if (user != undefined) {
+        if (
+          user.x >= window.innerWidth / 2 &&
+          user.x <= window.innerWidth &&
+          user.y >= window.innerHeight / 2 &&
+          user.y <= window.innerHeight
+        ) {
+          //regular
+          ctx.drawImage(
+            mainCanvas,
+            user.x - window.innerWidth / 2,
+            user.y - window.innerHeight / 2,
+            2000,
+            1000,
+            0,
+            0,
+            window.innerWidth,
+            window.innerHeight
+          )
+        } else if (
+          user.x >= window.innerWidth / 2 &&
+          user.x <= window.innerWidth &&
+          user.y >= window.innerHeight / 2
+        ) {
+          //locks top camera
+          ctx.drawImage(
+            mainCanvas,
+            user.x - window.innerWidth / 2,
+            window.innerHeight - window.innerHeight / 2,
+            2000,
+            1000,
+            0,
+            0,
+            window.innerWidth,
+            window.innerHeight
+          )
+        } else if (
+          user.x >= window.innerWidth / 2 &&
+          user.x <= window.innerWidth &&
+          user.y <= window.innerHeight
+        ) {
+          //locks bottom camera
+          ctx.drawImage(
+            mainCanvas,
+            user.x - window.innerWidth / 2,
+            window.innerHeight / 2 - window.innerHeight / 2,
+            2000,
+            1000,
+            0,
+            0,
+            window.innerWidth,
+            window.innerHeight
+          )
+        } else if (
+          user.x >= window.innerWidth / 2 &&
+          user.y <= window.innerHeight &&
+          user.y >= window.innerHeight / 2
+        ) {
+          //locks right camera
+          ctx.drawImage(
+            mainCanvas,
+            window.innerWidth - window.innerWidth / 2,
+            user.y - window.innerHeight / 2,
+            2000,
+            1000,
+            0,
+            0,
+            window.innerWidth,
+            window.innerHeight
+          )
+        } else if (
+          user.x <= window.innerWidth &&
+          user.y <= window.innerHeight &&
+          user.y >= window.innerHeight / 2
+        ) {
+          //locks left camera
+          ctx.drawImage(
+            mainCanvas,
+            window.innerWidth / 2 - window.innerWidth / 2,
+            user.y - window.innerHeight / 2,
+            2000,
+            1000,
+            0,
+            0,
+            window.innerWidth,
+            window.innerHeight
+          )
+        } else if (
+          user.x <= window.innerWidth &&
+          user.y <= window.innerHeight
+        ) {
+          //locks left top camera
+          ctx.drawImage(
+            mainCanvas,
+            window.innerWidth / 2 - window.innerWidth / 2,
+            window.innerHeight / 2 - window.innerHeight / 2,
+            2000,
+            1000,
+            0,
+            0,
+            window.innerWidth,
+            window.innerHeight
+          )
+        } else if (
+          user.x <= window.innerWidth &&
+          user.y >= window.innerHeight / 2
+        ) {
+          //locks left bottom camera
+          ctx.drawImage(
+            mainCanvas,
+            window.innerWidth / 2 - window.innerWidth / 2,
+            window.innerHeight - window.innerHeight / 2,
+            2000,
+            1000,
+            0,
+            0,
+            window.innerWidth,
+            window.innerHeight
+          )
+        } else if (
+          user.x >= window.innerWidth / 2 &&
+          user.y >= window.innerHeight / 2
+        ) {
+          //locks right bottom camera
+          ctx.drawImage(
+            mainCanvas,
+            window.innerWidth - window.innerWidth / 2,
+            window.innerHeight - window.innerHeight / 2,
+            2000,
+            1000,
+            0,
+            0,
+            window.innerWidth,
+            window.innerHeight
+          )
+        } else if (
+          user.x >= window.innerWidth / 2 &&
+          user.y <= window.innerHeight
+        ) {
+          //locks right top camera
+          ctx.drawImage(
+            mainCanvas,
+            window.innerWidth - window.innerWidth / 2,
+            window.innerHeight / 2 - window.innerHeight / 2,
+            2000,
+            1000,
+            0,
+            0,
+            window.innerWidth,
+            window.innerHeight
+          )
+        }
+        if (map) {
+          ctx.drawImage(
+            mainCanvas,
+            0,
+            0,
+            3000,
+            1500,
+            window.innerWidth / 1.15,
+            window.innerHeight / 1.15,
+            window.innerWidth / 8,
+            window.innerHeight / 8
+          )
+        }
+        let tool = new Image()
+        tool.src = '/imgs/tools/Axe.png'
+        ctx.drawImage(
+          tool,
+          window.innerWidth / 2.4,
+          window.innerHeight / 1.2
+        )
+        let tool2 = new Image()
+        tool2.src = '/imgs/tools/Pickaxe.png'
+        ctx.drawImage(
+          tool2,
+          window.innerWidth / 2.2,
+          window.innerHeight / 1.2
+        )
+        let tool3 = new Image()
+        tool3.src = '/imgs/tools/Rod.png'
+        ctx.drawImage(
+          tool3,
+          window.innerWidth / 2.05,
+          window.innerHeight / 1.21
+        )
+      }
+    })
+    sock.on('data', (data) => {
+      $.ajax({
+        url: '/savePlayer',
+        type: 'PUT',
+        data: {
+          x: data.x,
+          y: data.y,
+          cx: data.cx,
+          cy: data.cy,
+          speed: data.speed,
+          coins: data.coins,
+          inventory: data.inventory,
+          holding: data.holding,
+          facing: data.facing,
+          face: data.face,
+          upgrades: data.upgrades,
+          color: data.color,
+        },
+        success: function (data) {
+        },
+        dataType: 'json',
+      })
+    })
+
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang='en'>
+
+<head>
+
+  <meta charset='utf-8' />
+  <title>MS Paint Fishing Simulator Shop</title>
+  <link rel='icon' type='image/x-icon' href='/favicon.ico'>
+  <style>
+    html,
+    body {
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden;
+      background-image: url(./imgs/shop/PickaxeShop.png);
+      background-repeat: 'no-repeat';
+      background-size: 2000px 1000px;
+    }
+
+    .button {
+      background-color: #4CAF50;
+      /* Green */
+      border: none;
+      color: white;
+      padding: 15px 32px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 5px 40px;
+      cursor: pointer;
+    }
+
+    .button1 {
+      width: 550px;
+      height: 170px;
+      opacity: 0;
+    }
+
+    .button2 {
+      width: 50%;
+    }
+
+    .button3 {
+      width: 100%;
+    }
+  </style>
+  <script src='https://cdn.socket.io/4.5.4/socket.io.min.js'></script>
+  <script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.4/jquery.min.js'></script>
+  <script src='//cdn.jsdelivr.net/npm/alertifyjs@1.13.1/build/alertify.min.js'></script>
+  <link rel='stylesheet' href='//cdn.jsdelivr.net/npm/alertifyjs@1.13.1/build/css/alertify.min.css' />
+</head>
+
+<body id='home'>
+  <canvas id='TheCanvas'></canvas>
+  <div id='container' style='position:absolute;left: 950px;top:225px;display: flexbox;'>
+    <form id='nameform'>
+      <br>
+      <input id='pick' type='button' class='button button1'>
+      <br>
+      <input id='chisle' type='button' class='button button1'>
+      <br>
+      <input id='handle' type='button' class='button button1'>
+      <br>
+      <input id='exit' type='button' class='button button1'>
+    </form>
+  </div>
+  <script>
+    var sock = io()
+    let canvas = document.getElementById('TheCanvas');
+    ctx = canvas.getContext('2d');
+    window.addEventListener('resize ', render, false);
+    render()
+    function render() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      canvasW = canvas.width;
+      canvasH = canvas.height;
+    }
+    var Mapimg = new Image();
+    var MapimgIndex = 0;
+    $(document).ready(() => {
+      sock.emit('getUserData')
+      Mapimg.src = '/imgs/shop/PickaxeShop.png'
+      $('#container').css('left', canvasW / 2)
+      $('#pick').click(() => {
+        $.get('/getName', function (data) {
+          let name = data.name
+          $.ajax({
+            url: '/read',
+            type: 'GET',
+            data: { username: name },
+            success: function (data) {
+              let cost = data.upgrades[6] * 10
+              alertify.confirm('Upgrade Pick To Level ' + (Number(data.upgrades[6]) + 1) + ' For ' + cost + ' Coins?',
+                'Upgrading your pick increases pickaxe base damage',
+                function () {
+                  if (data.coins >= cost) {
+                    sock.emit('upgrade', { cost: cost, player: data, index: 6 })
+                  } else {
+                    alertify.error('Not Enough Coins');
+                  }
+                },
+                function () {
+                  alertify.error('Did Not Upgrade');
+                }
+              )
+            },
+            dataType: 'json',
+          })
+        })
+      })
+      $('#chisle').click(() => {
+        $.get('/getName', function (data) {
+          let name = data.name
+          $.ajax({
+            url: '/read',
+            type: 'GET',
+            data: { username: name },
+            success: function (data) {
+              let cost = data.upgrades[7] * 10
+              alertify.confirm('Upgrade Chisle To Level ' + (Number(data.upgrades[7]) + 1) + ' For ' + cost + ' Coins?',
+                'Upgrading your chisle increases the damage of your critical strikes',
+                function () {
+                  if (data.coins >= cost) {
+                    sock.emit('upgrade', { cost: cost, player: data, index: 7 })
+                  } else {
+                    alertify.error('Not Enough Coins');
+                  }
+                },
+                function () {
+                  alertify.error('Did Not Upgrade');
+                }
+              )
+            },
+            dataType: 'json',
+          })
+        })
+      })
+      $('#handle').click(() => {
+        $.get('/getName', function (data) {
+          let name = data.name
+          $.ajax({
+            url: '/read',
+            type: 'GET',
+            data: { username: name },
+            success: function (data) {
+              if(data.upgrades[8] < 9) {
+              let cost = data.upgrades[8] * 10
+              alertify.confirm('Upgrade Handle To Level ' + (Number(data.upgrades[8]) + 1) + ' For ' + cost + ' Coins?',
+              "Upgrading your handle increases chances of dealing critical strikes",
+                function () {
+                  if (data.coins >= cost) {
+                    sock.emit('upgrade', { cost: cost, player: data, index: 8 })
+                  } else {
+                    alertify.error('Not Enough Coins');
+                  }
+                },
+                function () {
+                  alertify.error('Did Not Upgrade');
+                }
+              )
+              }else {
+                alertify.error('Already max level');
+              }
+            },
+            dataType: 'json',
+          })
+        })
+      })
+      $('#exit').click(() => {
+        window.location.replace('/mainShop')
+      })
+    })
+
+    window.onresize = function () {
+      Mapimg.src = '/imgs/shop/AxeShop.png'
+    }
+
+    sock.on('update-players', (Users) => {
+      render()
+      ctx.clearRect(0, 0, 10000, 10000);
+      $('#container').css('left', canvasW / 2 - 100)
+      ctx.drawImage(Mapimg, 0, 0, 2000, 1000);
+    });
+
+    sock.on('upgraded', (data) => {
+      $.ajax({
+        url: '/savePlayer',
+        type: 'PUT',
+        data: {
+          x: data.x,
+          y: data.y,
+          cx: data.cx,
+          cy: data.cy,
+          speed: data.speed,
+          coins: data.coins,
+          inventory: data.inventory,
+          holding: data.holding,
+          facing: data.facing,
+          face: data.face,
+          color: data.color,
+          upgrades: data.upgrades,
+        },
+        success: () => {
+          alertify.success('Upgrade Complete');
+        }
+      })
+    })
+  </script>
+
+</html>

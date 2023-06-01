@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang='en'>
+
+<head>
+
+  <meta charset='utf-8' />
+  <title>MS Paint Fishing Simulator Shop</title>
+  <link rel='icon' type='image/x-icon' href='/favicon.ico'>
+  <style>
+    html,
+    body {
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden;
+      background-image: url(./imgs/custom/custom.png);
+      background-repeat: 'no-repeat';
+      background-size: 2000px 1000px;
+    }
+
+    .button {
+      background-color: #4CAF50;
+      border: none;
+      padding: 50px 32px;
+      text-align: center;
+      display: inline-block;
+      margin: 60px 40px;
+      cursor: pointer
+    }
+
+    .button1 {
+      width: 550px;
+      height: 170px;
+      opacity: 0
+    }
+  </style>
+  <script src='https://cdn.socket.io/4.5.4/socket.io.min.js'></script>
+  <script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.4/jquery.min.js'></script>
+  <script src='//cdn.jsdelivr.net/npm/alertifyjs@1.13.1/build/alertify.min.js'></script>
+  <link rel='stylesheet' href='//cdn.jsdelivr.net/npm/alertifyjs@1.13.1/build/css/alertify.min.css' />
+</head>
+
+<body id='home'>
+  <canvas id='TheCanvas'></canvas>
+  <div id='container' style='position:absolute;left: 950px;top:150px;display: flexbox'>
+    <form id='nameform'>
+      <input id='face' type='button' class='button button1'>
+      <br>
+      <input id='color' type='color' class='button button1' onchange=changeColor()>
+      <br>
+      <input id='exit' type='button' class='button button1'>
+    </form>
+  </div>
+  <script>
+    let faceIMG = new Image()
+    let name = ''
+    let face = 0
+    var sock = io()
+    let canvas = document.getElementById('TheCanvas')
+    ctx = canvas.getContext('2d')
+    window.addEventListener('resize ', render, false)
+    render()
+    function render() {
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+      canvasW = canvas.width
+      canvasH = canvas.height
+    }
+    var Mapimg = new Image()
+    $(document).ready(() => {
+      $.get('/getName', function (data) {
+        name = data.name
+      })
+      Mapimg.src = '/imgs/custom/custom.png'
+      $('#container').css('left', canvasW / 2)
+
+      $('#face').click(() => {
+        changeFace()
+      })
+      $('#exit').click(() => {
+        $.ajax({
+          url: '/read',
+          type: 'GET',
+          data: { username: name },
+          success: function (data) {
+            $.ajax({
+              url: '/savePlayer',
+              type: 'PUT',
+              data: {
+                x: data.x,
+                y: 1200,
+                cx: data.cx,
+                cy: data.cy,
+                speed: data.speed,
+                coins: data.coins,
+                inventory: data.inventory,
+                holding: data.holding,
+                facing: data.facing,
+                face: data.face,
+                color: data.color,
+                upgrades: data.upgrades,
+              },
+              success: () => { window.location.replace('/game') }
+            })
+          },
+          dataType: 'json',
+        })
+      })
+    })
+
+    window.onresize = function () {
+      Mapimg.src = '/imgs/custom/custom.png'
+    }
+    sock.on('GotMilk', (id) => {
+      window.location.replace('/game')
+    })
+    function changeColor() {
+      let color = $('#color').val()
+      $.ajax({
+        url: '/read',
+        type: 'GET',
+        data: { username: name },
+        success: function (data) {
+          $.ajax({
+            url: '/savePlayer',
+            type: 'PUT',
+            data: {
+              x: data.x,
+              y: data.y,
+              cx: data.cx,
+              cy: data.cy,
+              speed: data.speed,
+              coins: data.coins,
+              inventory: data.inventory,
+              holding: data.holding,
+              facing: data.facing,
+              face: data.face,
+              color: color,
+              upgrades: data.upgrades,
+            }
+          })
+        },
+        dataType: 'json',
+      })
+      sock.emit('update-color', { name: name, color: color })
+    }
+    function changeFace() {
+      if (face++ <= 5) {
+        face + 1
+        console.log(face)
+      } else {
+        face = 1
+        console.log(face)
+      }
+      $.ajax({
+        url: '/read',
+        type: 'GET',
+        data: { username: name },
+        success: function (data) {
+          $.ajax({
+            url: '/savePlayer',
+            type: 'PUT',
+            data: {
+              x: data.x,
+              y: data.y,
+              cx: data.cx,
+              cy: data.cy,
+              speed: data.speed,
+              coins: data.coins,
+              inventory: data.inventory,
+              holding: data.holding,
+              facing: data.facing,
+              face: face,
+              color: data.color,
+              upgrades: data.upgrades,
+            }
+          })
+        },
+        dataType: 'json',
+      })
+      sock.emit('update-face', { name: name, face: face })
+    }
+    sock.emit('customArrive')
+    sock.on('customWait', (data) => {
+      CL = data.CL
+      CL.forEach((user) => {
+        if (user.PlayerName == name) {
+          switch (user.face) {
+            case 1:
+              faceIMG.src = './imgs/faces/Face1.png'
+              break
+            case 2:
+              faceIMG.src = './imgs/faces/Face2.png'
+              break
+            case 3:
+              faceIMG.src = './imgs/faces/Face3.png'
+              break
+            case 4:
+              faceIMG.src = './imgs/faces/Face4.png'
+              break
+            case 5:
+              faceIMG.src = './imgs/faces/Face5.png'
+              break
+            default:
+              faceIMG.src = './imgs/faces/Face3.png'
+              break
+          }
+          
+          face = user.face
+          ctx.clearRect(0, 0, 10000000000000000, 100000000000000000)
+          ctx.beginPath()
+          ctx.lineWidth = '30'
+          ctx.strokeStyle = user.color
+          ctx.rect(300, 300, 300, 300)
+          ctx.stroke()
+          faceIMG.onload = function () {
+            ctx.drawImage(faceIMG, 300, 300, 300, 300)
+          }
+          $('#color').val(user.color)
+        }
+      })
+    })
+  </script>
+
+</html>

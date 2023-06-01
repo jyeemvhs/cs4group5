@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <meta charset="utf-8" />
+  <title>MS Paint Fishing Simulator Shop</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <style>
+    html,
+    body {
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden;
+      background-image: url(./imgs/shop/FishingRodShop.png);
+      background-repeat: "no-repeat";
+      background-size: 2000px 1000px;
+    }
+
+    .button {
+      background-color: #4CAF50;
+      /* Green */
+      border: none;
+      color: white;
+      padding: 15px 32px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 5px 40px;
+      cursor: pointer;
+    }
+
+    .button1 {
+      width: 550px;
+      height: 170px;
+      opacity: 0;
+    }
+
+    .button2 {
+      width: 50%;
+    }
+
+    .button3 {
+      width: 100%;
+    }
+  </style>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/alertifyjs@1.13.1/build/alertify.min.js"></script>
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/alertifyjs@1.13.1/build/css/alertify.min.css" />
+</head>
+
+<body id="home">
+  <canvas id="TheCanvas"></canvas>
+  <div id="container" style="position:absolute;left: 950px;top:225px;display: flexbox;">
+    <form id="nameform">
+      <br>
+      <input id='rod' type="button" class="button button1">
+      <br>
+      <input id='line' type="button" class="button button1">
+      <br>
+      <input id='bait' type="button" class="button button1">
+      <br>
+      <input id='exit' type="button" class="button button1">
+    </form>
+  </div>
+  <script>
+    var sock = io()
+    let canvas = document.getElementById("TheCanvas");
+    ctx = canvas.getContext("2d");
+    window.addEventListener('resize ', render, false);
+    render()
+    function render() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      canvasW = canvas.width;
+      canvasH = canvas.height;
+    }
+    var Mapimg = new Image();
+    var MapimgIndex = 0;
+    $(document).ready(() => {
+      sock.emit('getUserData')
+      Mapimg.src = '/imgs/shop/FishingRodShop.png'
+      $("#container").css("left", canvasW / 2)
+      $("#rod").click(() => {
+        $.get('/getName', function (data) {
+          let name = data.name
+          $.ajax({
+            url: '/read',
+            type: 'GET',
+            data: { username: name },
+            success: function (data) {
+              if(data.upgrades[0] < 3) {
+                let cost = data.upgrades[0] * 10
+              alertify.confirm("Upgrade Rod To Level " + (Number(data.upgrades[0]) + 1) + " For " + cost + " Coins?",
+                "Upgrading Rod allows you to fish at the pond at level 3",
+                function () {
+                  if (data.coins >= cost) {
+                    sock.emit('upgrade', { cost: cost, player: data, index: 0 })
+                  } else {
+                    alertify.error('Not Enough Coins');
+                  }
+                },
+                function () {
+                  alertify.error('Did Not Upgrade');
+                }
+              )
+              }else {
+                alertify.error('Already max level');
+              }
+            },
+            dataType: 'json',
+          })
+        })
+      })
+      $("#line").click(() => {
+        $.get('/getName', function (data) {
+          let name = data.name
+          $.ajax({
+            url: '/read',
+            type: 'GET',
+            data: { username: name },
+            success: function (data) {
+              if(data.upgrades[1] < 7) {
+              let cost = data.upgrades[1] * 10
+              alertify.confirm("Upgrade Line To Level " + (Number(data.upgrades[1]) + 1) + " For " + cost + " Coins?",
+                "Upgrading line reduces the max amount of time to catch a fish",
+                function () {
+                  if (data.coins >= cost) {
+                    sock.emit('upgrade', { cost: cost, player: data, index: 1 })
+                  } else {
+                    alertify.error('Not Enough Coins');
+                  }
+                },
+                function () {
+                  alertify.error('Did Not Upgrade');
+                }
+              )
+              }else {
+                alertify.error('Already max level');
+              }
+            },
+            dataType: 'json',
+          })
+        })
+      })
+      $("#bait").click(() => {
+        $.get('/getName', function (data) {
+          let name = data.name
+          $.ajax({
+            url: '/read',
+            type: 'GET',
+            data: { username: name },
+            success: function (data) {
+              if (data.upgrades[2] >= 3)
+                alertify.error('Already max level');
+              else {
+                let cost = data.upgrades[2] * 10
+                alertify.confirm("Upgrade Bait To Level " + (Number(data.upgrades[2]) + 1) + " For " + cost + " Coins?",
+                  "Upgrading bait increases the chance of catching higher rarity fish",
+                  function () {
+                    if (data.coins >= cost) {
+                      sock.emit('upgrade', { cost: cost, player: data, index: 2 })
+                    } else {
+                      alertify.error('Not Enough Coins');
+                    }
+                  },
+                  function () {
+                    alertify.error('Did Not Upgrade');
+                  }
+                )
+              }
+            },
+            dataType: 'json',
+          })
+        })
+      })
+      $("#exit").click(() => {
+        window.location.replace('/mainShop')
+      })
+    })
+
+    window.onresize = function () {
+      Mapimg.src = '/imgs/shop/AxeShop.png'
+    }
+
+    sock.on('update-players', (Users) => {
+      render()
+      ctx.clearRect(0, 0, 10000, 10000);
+      $("#container").css("left", canvasW / 2 - 100)
+      ctx.drawImage(Mapimg, 0, 0, 2000, 1000);
+    });
+
+    sock.on('upgraded', (data) => {
+      $.ajax({
+        url: '/savePlayer',
+        type: 'PUT',
+        data: {
+          x: data.x,
+          y: data.y,
+          cx: data.cx,
+          cy: data.cy,
+          speed: data.speed,
+          coins: data.coins,
+          inventory: data.inventory,
+          holding: data.holding,
+          facing: data.facing,
+          face: data.face,
+          color: data.color,
+          upgrades: data.upgrades,
+        },
+        success: () => {
+          alertify.success('Upgrade Complete');
+        }
+      })
+    })
+  </script>
+
+</html>
