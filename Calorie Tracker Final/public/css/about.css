@@ -1,0 +1,108 @@
+@font-face {
+  font-family: 'Bigdex';
+  src: url('/fonts/Bigdex.ttf');
+}
+
+@font-face {
+  font-family: 'BebasNeue';
+  src: url('/fonts/BebasNeue-Regular.ttf');
+}
+
+#navigation {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: #148bff;
+  font-family: 'BebasNeue', Fantasy, sans-serif;
+  font-weight: 30;
+
+}
+
+#navigation li a {
+  float: left;
+  display: block;
+  color: white;
+  text-align: center;
+  padding: 14px 16px;
+  text-decoration: none;
+}
+
+/* Change the link color to #111 (black) on hover */
+#navigation li a:hover {
+  color: #00206b;
+}
+
+#title{
+  text-shadow: 2px 2px 4px rgba(0, 32, 107, 0.25),
+               3px 4px 4px rgba(0, 32, 107, 0.5),
+               4px 6px 4px rgba(0, 32, 107, 0.75),
+               5px 8px 4px rgba(0, 32, 107, 1);
+  font-size: 110px;
+  font-weight: 30;
+    /*background-image: repeating-radial-gradient(circle closest-corner at 100px 100px, #4140FF, #1414C8 10%, #4140FF 20%);*/
+   /* color: transparent;*/
+  color: #f2f2f2;
+  background-color: #148bff;
+  font-family: 'Bigdex', Fantasy, sans-serif;
+  float: middle;
+  line-height: .75;
+  text-align: center;
+  vertical-align: middle;
+}
+
+#caption{
+  background-color: #148bff;
+  color: #00206b;
+  font-size: 15px;
+  font-weight: 30;
+  float: middle;
+  text-align: center;
+  translate: 0px -50px;
+}
+
+#stage {
+    float: middle;
+    margin: 1em auto;
+    width: 522px;
+    height: 422px;
+    box-shadow: 3px 3px #148bff, 0em 0 3em #00206b;
+  }
+
+  #stage a {
+    position: absolute;
+  }
+  #stage a img {
+    padding: 10px;
+    border: 1px solid #ccc;
+    background: #fff;
+  }
+
+  #stage a:nth-of-type(1) {
+    animation-name: fader;
+    animation-delay: 4s;
+    animation-duration: 1s;
+    z-index: 20;
+  }
+  #stage a:nth-of-type(2) {
+    z-index: 10;
+  }
+  #stage a:nth-of-type(n+3) {
+    display: none;
+  }
+
+  @keyframes fader {
+    from { opacity: 1.0; }
+    to   { opacity: 0.0; }
+  }
+
+  p {
+  display: block;
+  font-family: 'BebasNeue', Fantasy, sans-serif;
+  color: #00206b;
+  font-size: 20px;
+  font-weight: 30;
+  float: middle;
+  text-align: center;
+  translate: 0px 30px;
+}
